@@ -22,6 +22,7 @@ input[type="time"],input[type="date"]{width:100%;padding:12px 12px;border-radius
 .btn.primary{background:var(--accent);color:white;flex:1;min-width:140px}
 .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
 .btn.danger{background:var(--danger);color:white}
+.btn.ok{background:var(--ok);color:#001b06;flex:1;min-width:160px}
 .kpis{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
 @media(min-width:520px){.kpis{grid-template-columns:1fr 1fr}}
 .kpi{border:1px solid var(--line);border-radius:14px;padding:12px}
@@ -40,7 +41,6 @@ input[type="time"],input[type="date"]{width:100%;padding:12px 12px;border-radius
 .small{font-size:12px;color:var(--muted);line-height:1.35}
 .footer{margin-top:14px}
 .notice{padding:12px;border-radius:14px;border:1px dashed var(--line);color:var(--muted);font-size:12px}
-a{color:var(--accent);text-decoration:none}
 .hidden{display:none}
 </style></head><body><div class="wrap"><div class="top"><div class="brand"><div class="logo">R</div><div><h1>WorkRIT</h1><div class="sub" id="subtitle"></div></div></div><div class="tabs"><button class="tab active" id="tabToday">Today</button><button class="tab" id="tabWeek">Week</button></div></div>
 
@@ -54,21 +54,20 @@ a{color:var(--accent);text-decoration:none}
 </div>
 
 <div class="row">
-<button class="btn primary" id="saveBtn">Save day</button>
+<button class="btn primary" id="startBtn">Start shift (save check-in)</button>
+<button class="btn ok" id="finishBtn">Shift finished (save all)</button>
 <button class="btn ghost" id="fillNowBtn">Fill now</button>
 <button class="btn danger" id="deleteBtn">Delete day</button>
 </div>
 
-<div class="kpis" id="kpis">
-<div class="kpi"><div class="t">RIT Time</div><div class="v" id="kRit">--</div><div class="h" id="hRit">RIT End − RIT Start</div></div>
-<div class="kpi"><div class="t">Total Worked Today</div><div class="v" id="kTotal">--</div><div class="h" id="hTotal">(Check Out − Check In) − RIT Time</div></div>
+<div class="kpis">
+<div class="kpi"><div class="t">Status</div><div class="v" id="kStatus">--</div><div class="h" id="hStatus"></div></div>
+<div class="kpi"><div class="t">Total Worked Today</div><div class="v" id="kTotal">--</div><div class="h" id="hTotal">(Check Out − Check In) − (RIT End − RIT Start)</div></div>
 </div>
 
-<div class="sep"></div>
-
 <div class="kpis">
+<div class="kpi"><div class="t">RIT Time</div><div class="v" id="kRit">--</div><div class="h">RIT End − RIT Start</div></div>
 <div class="kpi"><div class="t">This Week Total</div><div class="v" id="kWeek">--</div><div class="h" id="hWeek"></div></div>
-<div class="kpi"><div class="t">Days Saved This Week</div><div class="v" id="kDays">--</div><div class="h">Only days in the current week are counted</div></div>
 </div>
 
 <div class="footer"><div class="notice">Tip: Add to Home Screen in Safari: Share → Add to Home Screen.</div></div>
@@ -81,7 +80,7 @@ a{color:var(--accent);text-decoration:none}
 <div class="sep"></div>
 <div class="kpis">
 <div class="kpi"><div class="t">Weekly Total</div><div class="v" id="wkTotal">--</div><div class="h">Sum of Total Worked for this week</div></div>
-<div class="kpi"><div class="t">Export / Backup</div><div class="v" style="font-size:14px;font-weight:900">JSON</div><div class="h"><a href="#" id="exportBtn">Download backup</a> · <a href="#" id="importBtn">Import backup</a></div></div>
+<div class="kpi"><div class="t">Backup</div><div class="v" style="font-size:14px;font-weight:900">JSON</div><div class="h"><a href="#" id="exportBtn" style="color:var(--accent);text-decoration:none">Download</a> · <a href="#" id="importBtn" style="color:var(--accent);text-decoration:none">Import</a></div></div>
 </div>
 <input id="importFile" type="file" accept="application/json" class="hidden">
 </div>
@@ -89,12 +88,12 @@ a{color:var(--accent);text-decoration:none}
 </div>
 
 <script>
-const SKEY="workrit_entries_v1"
+const SKEY="workrit_entries_v2"
 const $=id=>document.getElementById(id)
 const tabToday=$("tabToday"),tabWeek=$("tabWeek"),viewToday=$("viewToday"),viewWeek=$("viewWeek")
 const dateEl=$("date"),checkInEl=$("checkIn"),ritStartEl=$("ritStart"),ritEndEl=$("ritEnd"),checkOutEl=$("checkOut")
-const saveBtn=$("saveBtn"),deleteBtn=$("deleteBtn"),fillNowBtn=$("fillNowBtn")
-const kRit=$("kRit"),kTotal=$("kTotal"),kWeek=$("kWeek"),kDays=$("kDays"),hWeek=$("hWeek"),subtitle=$("subtitle")
+const startBtn=$("startBtn"),finishBtn=$("finishBtn"),deleteBtn=$("deleteBtn"),fillNowBtn=$("fillNowBtn")
+const kStatus=$("kStatus"),hStatus=$("hStatus"),kRit=$("kRit"),kTotal=$("kTotal"),kWeek=$("kWeek"),hWeek=$("hWeek"),subtitle=$("subtitle")
 const weekRange=$("weekRange"),weekList=$("weekList"),wkTotal=$("wkTotal"),exportBtn=$("exportBtn"),importBtn=$("importBtn"),importFile=$("importFile")
 const pad=n=>String(n).padStart(2,"0")
 const toYMD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
@@ -110,25 +109,171 @@ const saveAll=obj=>localStorage.setItem(SKEY,JSON.stringify(obj))
 const getEntry=ymd=>load()[ymd]||null
 const setEntry=(ymd,entry)=>{const all=load();all[ymd]=entry;saveAll(all)}
 const delEntry=ymd=>{const all=load();delete all[ymd];saveAll(all)}
-const computeForInputs=()=>{const ymd=dateEl.value;const ci=parseTime(ymd,checkInEl.value);const rs=parseTime(ymd,ritStartEl.value);const re=parseTime(ymd,ritEndEl.value);const co=parseTime(ymd,checkOutEl.value);const rit=clampNonNeg(msBetween(rs,re));const span=clampNonNeg(msBetween(ci,co));let total=null;if(span!=null&&rit!=null)total=clampNonNeg(span-rit);return{ymd,ci,rs,re,co,rit,total}}
-const renderTodayKPIs=()=>{const r=computeForInputs();kRit.textContent=fmtDur(r.rit);kTotal.textContent=fmtDur(r.total);renderWeekSummary()}
-const weekEntries=()=>{const all=load();const now=new Date();const ws=weekStart(now),we=weekEndExclusive(now);const rows=[];for(const [ymd,entry] of Object.entries(all)){const d=new Date(ymd+"T00:00:00");if(inRange(d,ws,we))rows.push({ymd,entry})}rows.sort((a,b)=>a.ymd.localeCompare(b.ymd));return{ws,we,rows}}
-const calcEntryTotal=entry=>{const ymd=entry.ymd;const ci=parseTime(ymd,entry.checkIn);const rs=parseTime(ymd,entry.ritStart);const re=parseTime(ymd,entry.ritEnd);const co=parseTime(ymd,entry.checkOut);const rit=clampNonNeg(msBetween(rs,re));const span=clampNonNeg(msBetween(ci,co));if(span==null||rit==null)return null;return clampNonNeg(span-rit)}
-const renderWeekSummary=()=>{const {ws,we,rows}=weekEntries();let sum=0,days=0;for(const r of rows){const t=calcEntryTotal({ymd:r.ymd,...r.entry});if(t!=null){sum+=t;days++}}kWeek.textContent=fmtDur(sum);kDays.textContent=String(days);hWeek.textContent=`${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`;subtitle.textContent=`Week: ${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`}
-const renderWeekView=()=>{const now=new Date();const ws=weekStart(now),we=weekEndExclusive(now);weekRange.textContent=`${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`;const all=load();const days=[];for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(d.getDate()+i);const ymd=toYMD(d);const e=all[ymd]||null;days.push({d,ymd,e})}weekList.innerHTML="";let sum=0;for(const day of days){let pillClass="muted",pillText="No entry";if(day.e){const t=calcEntryTotal({ymd:day.ymd,...day.e});if(t!=null){pillClass="ok";pillText=fmtDur(t);sum+=t}else{pillClass="muted";pillText="Incomplete"}}const name=day.d.toLocaleDateString(undefined,{weekday:"long"});const dstr=day.d.toLocaleDateString(undefined,{month:"short",day:"numeric"});const item=document.createElement("div");item.className="item";item.innerHTML=`<div class="left"><div class="d">${name}</div><div class="m">${dstr} · ${day.ymd}</div></div><div class="pill ${pillClass}">${pillText}</div>`;item.addEventListener("click",()=>{switchToToday();dateEl.value=day.ymd;loadIntoForm(day.ymd)});weekList.appendChild(item)}wkTotal.textContent=fmtDur(sum)}
-const loadIntoForm=ymd=>{const e=getEntry(ymd);if(e){checkInEl.value=e.checkIn||"";ritStartEl.value=e.ritStart||"";ritEndEl.value=e.ritEnd||"";checkOutEl.value=e.checkOut||""}else{checkInEl.value="";ritStartEl.value="";ritEndEl.value="";checkOutEl.value=""}renderTodayKPIs()}
-const switchToToday=()=>{tabToday.classList.add("active");tabWeek.classList.remove("active");viewToday.classList.remove("hidden");viewWeek.classList.add("hidden");renderWeekSummary()}
+const computeFrom=(ymd,vals)=>{const ci=parseTime(ymd,vals.checkIn||"");const rs=parseTime(ymd,vals.ritStart||"");const re=parseTime(ymd,vals.ritEnd||"");const co=parseTime(ymd,vals.checkOut||"");const rit=clampNonNeg(msBetween(rs,re));const span=clampNonNeg(msBetween(ci,co));let total=null;if(span!=null&&rit!=null)total=clampNonNeg(span-rit);return{ci,rs,re,co,rit,total}}
+const computeForInputs=()=>computeFrom(dateEl.value,{checkIn:checkInEl.value,ritStart:ritStartEl.value,ritEnd:ritEndEl.value,checkOut:checkOutEl.value})
+const statusFor=(e)=>{if(!e||!e.checkIn)return{t:"Not started",h:"Tap Start shift after check-in"};if(e.checkIn&&(!e.checkOut||!e.ritStart||!e.ritEnd))return{t:"In progress",h:"Fill RIT + check-out, then tap Shift finished"};return{t:"Finished",h:"Saved for this day"}}
+const renderToday=()=>{
+const ymd=dateEl.value
+const saved=getEntry(ymd)
+const st=statusFor(saved||{})
+kStatus.textContent=st.t
+hStatus.textContent=st.h
+const r=computeForInputs()
+kRit.textContent=fmtDur(r.rit)
+kTotal.textContent=fmtDur(r.total)
+finishBtn.disabled=!(checkInEl.value&&ritStartEl.value&&ritEndEl.value&&checkOutEl.value)
+renderWeekSummary()
+}
+const weekEntries=()=>{
+const all=load()
+const now=new Date()
+const ws=weekStart(now),we=weekEndExclusive(now)
+const rows=[]
+for(const [ymd,entry] of Object.entries(all)){
+const d=new Date(ymd+"T00:00:00")
+if(inRange(d,ws,we))rows.push({ymd,entry})
+}
+rows.sort((a,b)=>a.ymd.localeCompare(b.ymd))
+return{ws,we,rows}
+}
+const calcEntryTotal=(ymd,entry)=>{
+const r=computeFrom(ymd,entry)
+return r.total
+}
+const renderWeekSummary=()=>{
+const {ws,we,rows}=weekEntries()
+let sum=0
+for(const r of rows){
+const t=calcEntryTotal(r.ymd,r.entry)
+if(t!=null)sum+=t
+}
+kWeek.textContent=fmtDur(sum)
+hWeek.textContent=`${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`
+subtitle.textContent=`Week: ${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`
+}
+const renderWeekView=()=>{
+const now=new Date()
+const ws=weekStart(now),we=weekEndExclusive(now)
+weekRange.textContent=`${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`
+const all=load()
+const days=[]
+for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(d.getDate()+i);const ymd=toYMD(d);days.push({d,ymd,e:all[ymd]||null})}
+weekList.innerHTML=""
+let sum=0
+for(const day of days){
+let pillClass="muted",pillText="No entry"
+if(day.e){
+const t=calcEntryTotal(day.ymd,day.e)
+if(t!=null){pillClass="ok";pillText=fmtDur(t);sum+=t}else{pillClass="muted";pillText="In progress"}
+}
+const name=day.d.toLocaleDateString(undefined,{weekday:"long"})
+const dstr=day.d.toLocaleDateString(undefined,{month:"short",day:"numeric"})
+const item=document.createElement("div")
+item.className="item"
+item.innerHTML=`<div class="left"><div class="d">${name}</div><div class="m">${dstr} · ${day.ymd}</div></div><div class="pill ${pillClass}">${pillText}</div>`
+item.addEventListener("click",()=>{switchToToday();dateEl.value=day.ymd;loadIntoForm(day.ymd)})
+weekList.appendChild(item)
+}
+wkTotal.textContent=fmtDur(sum)
+}
+const loadIntoForm=ymd=>{
+const e=getEntry(ymd)
+if(e){
+checkInEl.value=e.checkIn||""
+ritStartEl.value=e.ritStart||""
+ritEndEl.value=e.ritEnd||""
+checkOutEl.value=e.checkOut||""
+}else{
+checkInEl.value=""
+ritStartEl.value=""
+ritEndEl.value=""
+checkOutEl.value=""
+}
+renderToday()
+}
+const switchToToday=()=>{tabToday.classList.add("active");tabWeek.classList.remove("active");viewToday.classList.remove("hidden");viewWeek.classList.add("hidden");renderToday()}
 const switchToWeek=()=>{tabWeek.classList.add("active");tabToday.classList.remove("active");viewWeek.classList.remove("hidden");viewToday.classList.add("hidden");renderWeekView()}
 tabToday.addEventListener("click",switchToToday)
 tabWeek.addEventListener("click",switchToWeek)
-const validate=()=>{const r=computeForInputs();if(!r.ymd)return{ok:false,msg:"Pick a date"};if(!checkInEl.value||!ritStartEl.value||!ritEndEl.value||!checkOutEl.value)return{ok:false,msg:"Fill all times"};const orderOk=(r.ci<=r.rs)&&(r.rs<=r.re)&&(r.re<=r.co);if(!orderOk)return{ok:false,msg:"Times must be in order"};return{ok:true,msg:""}}
-saveBtn.addEventListener("click",()=>{const v=validate();if(!v.ok){alert(v.msg);return}const ymd=dateEl.value;setEntry(ymd,{checkIn:checkInEl.value,ritStart:ritStartEl.value,ritEnd:ritEndEl.value,checkOut:checkOutEl.value});renderTodayKPIs();alert("Saved")})
-deleteBtn.addEventListener("click",()=>{const ymd=dateEl.value;if(!ymd){alert("Pick a date");return}if(confirm("Delete this day?")){delEntry(ymd);loadIntoForm(ymd);renderWeekSummary();alert("Deleted")}})
-fillNowBtn.addEventListener("click",()=>{const now=new Date();const hh=pad(now.getHours()),mm=pad(now.getMinutes());const t=`${hh}:${mm}`;if(!checkInEl.value)checkInEl.value=t;else if(!ritStartEl.value)ritStartEl.value=t;else if(!ritEndEl.value)ritEndEl.value=t;else if(!checkOutEl.value)checkOutEl.value=t;renderTodayKPIs()})
-;[dateEl,checkInEl,ritStartEl,ritEndEl,checkOutEl].forEach(el=>el.addEventListener("input",renderTodayKPIs))
-exportBtn.addEventListener("click",(e)=>{e.preventDefault();const data=localStorage.getItem(SKEY)||"{}";const blob=new Blob([data],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="workrit-backup.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500)})
+const validateStart=()=>{
+if(!dateEl.value)return{ok:false,msg:"Pick a date"}
+if(!checkInEl.value)return{ok:false,msg:"Enter check-in time"}
+return{ok:true,msg:""}
+}
+const validateFinish=()=>{
+const ymd=dateEl.value
+if(!ymd)return{ok:false,msg:"Pick a date"}
+if(!checkInEl.value||!ritStartEl.value||!ritEndEl.value||!checkOutEl.value)return{ok:false,msg:"Fill all times"}
+const r=computeForInputs()
+if(!(r.ci&&r.rs&&r.re&&r.co))return{ok:false,msg:"Fill all times"}
+const orderOk=(r.ci<=r.rs)&&(r.rs<=r.re)&&(r.re<=r.co)
+if(!orderOk)return{ok:false,msg:"Times must be in order"}
+return{ok:true,msg:""}
+}
+startBtn.addEventListener("click",()=>{
+const v=validateStart()
+if(!v.ok){alert(v.msg);return}
+const ymd=dateEl.value
+const existing=getEntry(ymd)||{}
+setEntry(ymd,{...existing,checkIn:checkInEl.value,ritStart:existing.ritStart||"",ritEnd:existing.ritEnd||"",checkOut:existing.checkOut||""})
+renderToday()
+alert("Check-in saved")
+})
+finishBtn.addEventListener("click",()=>{
+const v=validateFinish()
+if(!v.ok){alert(v.msg);return}
+const ymd=dateEl.value
+setEntry(ymd,{checkIn:checkInEl.value,ritStart:ritStartEl.value,ritEnd:ritEndEl.value,checkOut:checkOutEl.value})
+renderToday()
+alert("Shift saved")
+})
+deleteBtn.addEventListener("click",()=>{
+const ymd=dateEl.value
+if(!ymd){alert("Pick a date");return}
+if(confirm("Delete this day?")){delEntry(ymd);loadIntoForm(ymd);alert("Deleted")}
+})
+fillNowBtn.addEventListener("click",()=>{
+const now=new Date()
+const t=`${pad(now.getHours())}:${pad(now.getMinutes())}`
+if(!checkInEl.value)checkInEl.value=t
+else if(!ritStartEl.value)ritStartEl.value=t
+else if(!ritEndEl.value)ritEndEl.value=t
+else if(!checkOutEl.value)checkOutEl.value=t
+renderToday()
+})
+;[dateEl,checkInEl,ritStartEl,ritEndEl,checkOutEl].forEach(el=>el.addEventListener("input",renderToday))
+exportBtn.addEventListener("click",(e)=>{
+e.preventDefault()
+const data=localStorage.getItem(SKEY)||"{}"
+const blob=new Blob([data],{type:"application/json"})
+const url=URL.createObjectURL(blob)
+const a=document.createElement("a")
+a.href=url
+a.download="workrit-backup.json"
+document.body.appendChild(a)
+a.click()
+a.remove()
+setTimeout(()=>URL.revokeObjectURL(url),500)
+})
 importBtn.addEventListener("click",(e)=>{e.preventDefault();importFile.click()})
-importFile.addEventListener("change",async()=>{const f=importFile.files&&importFile.files[0];if(!f)return;try{const txt=await f.text();const obj=JSON.parse(txt);if(!obj||typeof obj!=="object")throw new Error("bad");localStorage.setItem(SKEY,JSON.stringify(obj));alert("Imported");renderTodayKPIs();renderWeekView()}catch{alert("Import failed")}importFile.value=""})
-const init=()=>{const today=toYMD(new Date());dateEl.value=today;loadIntoForm(today);renderWeekSummary()}
+importFile.addEventListener("change",async()=>{
+const f=importFile.files&&importFile.files[0]
+if(!f)return
+try{
+const txt=await f.text()
+const obj=JSON.parse(txt)
+if(!obj||typeof obj!=="object")throw new Error("bad")
+localStorage.setItem(SKEY,JSON.stringify(obj))
+alert("Imported")
+renderToday()
+renderWeekView()
+}catch{alert("Import failed")}
+importFile.value=""
+})
+const init=()=>{
+const today=toYMD(new Date())
+dateEl.value=today
+loadIntoForm(today)
+}
 init()
 </script></body></html>
