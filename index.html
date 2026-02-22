@@ -22,7 +22,7 @@ input[type="time"],input[type="date"]{width:100%;padding:12px 12px;border-radius
 .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .btn{border:0;border-radius:14px;padding:12px 14px;font-weight:900;font-size:14px;min-height:48px}
 .btn.primary{background:var(--accent);color:white;flex:1;min-width:170px}
-.btn.ok{background:var(--ok);color:#ffffff;flex:1;min-width:170px}
+.btn.ok{background:var(--ok);color:#001b06;flex:1;min-width:170px}
 .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);min-width:120px}
 .btn.danger{background:var(--danger);color:white;min-width:120px}
 .btn:disabled{opacity:.5}
@@ -41,7 +41,6 @@ input[type="time"],input[type="date"]{width:100%;padding:12px 12px;border-radius
 .item .m{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pill{padding:8px 10px;border-radius:999px;border:1px solid var(--line);font-weight:950;white-space:nowrap}
 .pill.ok{border-color:rgba(48,209,88,.35);color:var(--ok)}
-.pill.warn{border-color:rgba(255,204,0,.6);color:#ffcc00}
 .pill.muted{color:var(--muted)}
 .small{font-size:12px;color:var(--muted);line-height:1.35}
 .footer{margin-top:14px}
@@ -210,10 +209,8 @@ let sum=0
 for(const day of days){
 let pillClass="muted",pillText="No entry"
 if(day.e){
-const r=computeFrom(day.ymd,day.e)
-if(r.rit!=null){pillClass="ok";pillText=fmtDur(r.rit);sum+=r.rit}
-else if(day.e.checkIn||day.e.ritStart||day.e.ritEnd||day.e.checkOut){pillClass="warn";pillText="In progress"}
-}
+const t=computeFrom(day.ymd,day.e).rit
+if(t!=null){pillClass="ok";pillText=fmtDur(t);sum+=t}else{pillText="In progress"}
 }
 const name=day.d.toLocaleDateString(undefined,{weekday:"long"})
 const dstr=day.d.toLocaleDateString(undefined,{month:"short",day:"numeric"})
