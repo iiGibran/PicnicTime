@@ -86,7 +86,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="kpis">
 <div class="kpi"><div class="t">Status</div><div class="v" id="kStatus">--</div><div class="h" id="hStatus"></div></div>
-<div class="kpi"><div class="t">Total Worked Today</div><div class="v" id="kTotal">--</div><div class="h">(Check Out − Check In) − (RIT End − RIT Start)</div></div>
+<div class="kpi"><div class="t">Total Worked Today</div><div class="v" id="kTotal">--</div><div class="h">Check Out − Check In</div></div>
 </div>
 
 <div class="kpis">
@@ -127,7 +127,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="sep"></div>
 <div class="kpis">
-<div class="kpi"><div class="t">Weekly Total</div><div class="v" id="wkTotal">--</div><div class="h">Sum of finished days in this week</div></div>
+<div class="kpi"><div class="t">Weekly Total</div><div class="v" id="wkTotal">--</div><div class="h">Sum of RIT time in this week</div></div>
 <div class="kpi"><div class="t">Backup</div><div class="v" style="font-size:14px;font-weight:950">JSON</div><div class="h"><a href="#" id="exportBtn">Download</a> · <a href="#" id="importBtn">Import</a></div></div>
 </div>
 <input id="importFile" type="file" accept="application/json" class="hidden">
@@ -160,7 +160,7 @@ const getEntry=ymd=>load()[ymd]||null
 const setEntry=(ymd,entry)=>{const all=load();all[ymd]=entry;saveAll(all)}
 const delEntry=ymd=>{const all=load();delete all[ymd];saveAll(all)}
 const clean=v=>v&&v.trim()?v.trim():""
-const computeFrom=(ymd,vals)=>{const ci=parseTime(ymd,clean(vals.checkIn));const rs=parseTime(ymd,clean(vals.ritStart));const re=parseTime(ymd,clean(vals.ritEnd));const co=parseTime(ymd,clean(vals.checkOut));const rit=clampNonNeg(msBetween(rs,re));const span=clampNonNeg(msBetween(ci,co));let total=null;if(span!=null&&rit!=null)total=clampNonNeg(span-rit);return{ci,rs,re,co,rit,total}}
+const computeFrom=(ymd,vals)=>{const ci=parseTime(ymd,clean(vals.checkIn));const rs=parseTime(ymd,clean(vals.ritStart));const re=parseTime(ymd,clean(vals.ritEnd));const co=parseTime(ymd,clean(vals.checkOut));const rit=clampNonNeg(msBetween(rs,re));const span=clampNonNeg(msBetween(ci,co));const total=span;return{ci,rs,re,co,rit,span,total}}
 const computeForInputs=()=>computeFrom(dateEl.value,{checkIn:checkInEl.value,ritStart:ritStartEl.value,ritEnd:ritEndEl.value,checkOut:checkOutEl.value})
 const statusFor=e=>{if(!e||(!e.checkIn&&!e.ritStart&&!e.ritEnd&&!e.checkOut))return{t:"Empty",h:"Fill any time(s) then tap Save progress"};if(e.checkIn&&e.ritStart&&e.ritEnd&&e.checkOut)return{t:"Finished",h:"Saved for this day"};return{t:"In progress",h:"You can keep saving as you fill more fields"}}
 
@@ -191,7 +191,7 @@ const all=load()
 let sum=0
 for(const [ymd,entry] of Object.entries(all)){
 const d=new Date(ymd+"T00:00:00")
-if(inRange(d,ws,we)){const t=computeFrom(ymd,entry).total;if(t!=null)sum+=t}
+if(inRange(d,ws,we)){const t=computeFrom(ymd,entry).rit;if(t!=null)sum+=t}
 }
 kWeek.textContent=fmtDur(sum)
 hWeek.textContent=labelWeekRange(ws,we)
@@ -209,7 +209,7 @@ let sum=0
 for(const day of days){
 let pillClass="muted",pillText="No entry"
 if(day.e){
-const t=computeFrom(day.ymd,day.e).total
+const t=computeFrom(day.ymd,day.e).rit
 if(t!=null){pillClass="ok";pillText=fmtDur(t);sum+=t}else{pillText="In progress"}
 }
 const name=day.d.toLocaleDateString(undefined,{weekday:"long"})
@@ -240,7 +240,7 @@ dRitStart.textContent=clean(e.ritStart)||"--"
 dRitEnd.textContent=clean(e.ritEnd)||"--"
 dCheckOut.textContent=clean(e.checkOut)||"--"
 dRitTime.textContent=fmtDur(r.rit)
-dTotal.textContent=fmtDur(r.total)
+dTotal.textContent=fmtDur(r.span)
 editDayBtn.onclick=()=>{switchToToday();dateEl.value=ymd;loadIntoForm(ymd)}
 }
 
