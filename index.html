@@ -12,11 +12,11 @@ h1{font-size:18px;margin:0;line-height:1.1}
 .tabs{display:flex;gap:8px;flex:0 0 auto}
 .tab{border:1px solid var(--line);background:transparent;color:var(--text);padding:10px 12px;border-radius:12px;font-weight:800;font-size:13px;min-height:44px}
 .tab.active{background:var(--card);border-color:transparent;box-shadow:0 1px 0 rgba(0,0,0,.08)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;overflow:hidden}
 @media(max-width:430px){.card{padding:12px;border-radius:16px}}
-.grid{display:grid;grid-template-columns:1fr;gap:10px}
+.grid{display:grid;grid-template-columns:1fr;gap:10px;min-width:0}
 @media(min-width:520px){.grid{grid-template-columns:1fr 1fr}}
-.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0;width:100%}
 label{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.2px}
 input[type="time"],input[type="date"],select{width:100%;max-width:100%;min-width:0;padding:12px 12px;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:17px;outline:none;min-height:48px}
 select{appearance:none}
@@ -30,7 +30,7 @@ select{appearance:none}
 .btn:disabled{opacity:.5;transform:none;filter:none}
 .kpis{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
 @media(min-width:520px){.kpis{grid-template-columns:1fr 1fr}}
-.kpi{border:1px solid var(--line);border-radius:16px;padding:12px}
+.kpi{border:1px solid var(--line);border-radius:16px;padding:12px;min-width:0}
 .kpi .t{font-size:12px;color:var(--muted);font-weight:800}
 .kpi .v{font-size:20px;font-weight:950;margin-top:6px}
 .kpi .h{font-size:12px;color:var(--muted);margin-top:6px}
@@ -51,9 +51,9 @@ select{appearance:none}
 .detail{margin-top:12px;border:1px solid var(--line);border-radius:16px;padding:12px}
 .detailgrid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
 @media(min-width:520px){.detailgrid{grid-template-columns:1fr 1fr}}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--line);border-radius:14px}
-.kv .k{font-size:12px;color:var(--muted);font-weight:800}
-.kv .v{font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--line);border-radius:14px;min-width:0}
+.kv .k{font-size:12px;color:var(--muted);font-weight:800;flex:0 0 auto}
+.kv .v{font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%}
 .notice{padding:12px;border-radius:16px;border:1px dashed var(--line);color:var(--muted);font-size:12px;margin-top:14px}
 .hidden{display:none}
 a{color:var(--accent);text-decoration:none}
@@ -91,7 +91,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="kpis">
 <div class="kpi"><div class="t">Total RIT Time</div><div class="v" id="kRit">--</div><div class="h">Sum of all RITs</div></div>
-<div class="kpi"><div class="t">This Week Total (RIT)</div><div class="v" id="kWeek">--</div><div class="h" id="hWeek"></div></div>
+<div class="kpi"><div class="t">Week Total (RIT)</div><div class="v" id="kWeek">--</div><div class="h" id="hWeek"></div></div>
 </div>
 
 <div class="notice">Saved on this device. Week → Download backup sometimes.</div>
@@ -156,9 +156,10 @@ const weekStart=d=>{const c=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12
 const weekEndExclusive=d=>{const s=weekStart(d);const e=new Date(s);e.setDate(e.getDate()+7);return e}
 const inRange=(d,start,endEx)=>d>=start&&d<endEx
 const clean=v=>v&&v.trim()?v.trim():""
-const safeParse=(raw)=>{try{const o=JSON.parse(raw);return o&&typeof o==="object"?o:{} }catch{return{}}}
+const safeParse=raw=>{try{const o=JSON.parse(raw);return o&&typeof o==="object"?o:{} }catch{return{}}}
 const loadKey=k=>safeParse(localStorage.getItem(k)||"{}")
 const saveKey=(k,obj)=>localStorage.setItem(k,JSON.stringify(obj))
+
 const ensureMigration=()=>{
 let cur=loadKey(NEWKEY)
 if(Object.keys(cur).length>0)return cur
@@ -174,16 +175,14 @@ if(Array.isArray(e.rits)){
 rits=e.rits.map(x=>({start:clean(x.start||x.ritStart||""),end:clean(x.end||x.ritEnd||"")})).slice(0,4)
 count=parseInt(e.ritCount||rits.length||1,10)||1
 }else{
-const s=clean(e.ritStart||"")
-const en=clean(e.ritEnd||"")
-rits=[{start:s,end:en}]
+rits=[{start:clean(e.ritStart||""),end:clean(e.ritEnd||"")}]
 count=parseInt(e.ritCount||1,10)||1
 }
 if(count<1)count=1
 if(count>4)count=4
 while(rits.length<count)rits.push({start:"",end:""})
 rits=rits.slice(0,count)
-const finished=typeof e.finished==="boolean"?e.finished:(clean(e.checkIn)&&clean(e.checkOut)&&rits.every(r=>clean(r.start)&&clean(r.end))?true:false)
+const finished=typeof e.finished==="boolean"?e.finished:false
 migrated[ymd]={checkIn:clean(e.checkIn||""),checkOut:clean(e.checkOut||""),ritCount:count,rits,finished}
 }
 saveKey(NEWKEY,migrated)
@@ -197,11 +196,13 @@ const getEntry=ymd=>reload()[ymd]||null
 const setEntry=(ymd,entry)=>{const all=reload();all[ymd]=entry;saveKey(NEWKEY,all)}
 const delEntry=ymd=>{const all=reload();delete all[ymd];saveKey(NEWKEY,all)}
 
-const buildRitInputs=count=>{
+const buildRitInputs=(count)=>{
 ritContainer.innerHTML=""
 for(let i=1;i<=count;i++){
-const a=document.createElement("div");a.className="field";a.innerHTML=`<label>RIT ${i} Start</label><input id="rit${i}Start" type="time" step="60">`
-const b=document.createElement("div");b.className="field";b.innerHTML=`<label>RIT ${i} End</label><input id="rit${i}End" type="time" step="60">`
+const a=document.createElement("div");a.className="field"
+a.innerHTML=`<label>RIT ${i} Start</label><input id="rit${i}Start" type="time" step="60">`
+const b=document.createElement("div");b.className="field"
+b.innerHTML=`<label>RIT ${i} End</label><input id="rit${i}End" type="time" step="60">`
 ritContainer.appendChild(a);ritContainer.appendChild(b)
 }
 for(const el of ritContainer.querySelectorAll("input[type=time]"))el.addEventListener("input",renderToday)
@@ -213,7 +214,7 @@ const rits=[]
 for(let i=1;i<=count;i++){
 const s=document.getElementById(`rit${i}Start`)
 const e=document.getElementById(`rit${i}End`)
-rits.push({start:clean(s&&s.value||""),end:clean(e&&e.value||"")})
+rits.push({start:clean((s&&s.value)||""),end:clean((e&&e.value)||"")})
 }
 return{count,rits}
 }
@@ -236,15 +237,13 @@ const co=parseTime(ymd,clean(entry.checkOut||""))
 const span=clampNonNeg(msBetween(ci,co))
 let ritSum=0
 let anyComplete=false
-let anyPartial=false
 for(const r of (entry.rits||[])){
 const rs=parseTime(ymd,clean(r.start||""))
 const re=parseTime(ymd,clean(r.end||""))
 if(rs&&re){anyComplete=true;ritSum+=clampNonNeg(msBetween(rs,re))||0}
-else if(rs||re){anyPartial=true}
 }
 const rit=anyComplete?ritSum:null
-return{span,rit,anyPartial}
+return{span,rit}
 }
 
 const hasAnyData=e=>!!(e&&(clean(e.checkIn||"")||clean(e.checkOut||"")||(e.rits||[]).some(r=>clean(r.start)||clean(r.end))||e.ritCount))
@@ -260,9 +259,9 @@ const weekAnchor=()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDat
 const currentWeekRange=()=>{const a=weekAnchor();const ws=weekStart(a),we=weekEndExclusive(a);return{ws,we}}
 const labelWeekRange=(ws,we)=>`${toYMD(ws)} → ${toYMD(new Date(we.getTime()-86400000))}`
 
-const renderThisWeekSummary=()=>{
-const now=new Date()
-const ws=weekStart(now),we=weekEndExclusive(now)
+const renderWeekTotalFor=(anchorYmd)=>{
+const base=anchorYmd?new Date(anchorYmd+"T12:00:00"):new Date()
+const ws=weekStart(base),we=weekEndExclusive(base)
 let sum=0
 for(const [ymd,e] of Object.entries(reload())){
 const d=new Date(ymd+"T00:00:00")
@@ -286,7 +285,7 @@ const r=computeFrom(ymd,{checkIn:checkInEl.value,checkOut:checkOutEl.value,ritCo
 kTotal.textContent=fmtDur(r.span)
 kRit.textContent=fmtDur(r.rit)
 finishBtn.disabled=!(clean(checkInEl.value)&&clean(checkOutEl.value)&&rits.every(x=>clean(x.start)&&clean(x.end)))
-renderThisWeekSummary()
+renderWeekTotalFor(ymd)
 }
 
 const renderWeekView=()=>{
@@ -309,7 +308,7 @@ const dstr=day.d.toLocaleDateString(undefined,{month:"short",day:"numeric"})
 const item=document.createElement("div")
 item.className="item"+(selectedYmd===day.ymd?" active":"")
 item.innerHTML=`<div class="left"><div class="d">${name}</div><div class="m">${dstr} · ${day.ymd}</div></div><div class="pill ${pillClass}">${pillText}</div>`
-item.addEventListener("click",()=>{selectedYmd=day.ymd;renderWeekView();renderDayDetail(day.ymd,day.d,day.e)})
+item.addEventListener("click",()=>{selectedYmd=day.ymd;renderWeekView();renderDayDetail(day.ymd,day.d,day.e);renderWeekTotalFor(day.ymd)})
 weekList.appendChild(item)
 }
 wkTotal.textContent=fmtDur(sum)
@@ -345,7 +344,7 @@ detailRits.appendChild(wrap)
 editDayBtn.onclick=()=>{switchToToday();dateEl.value=ymd;loadIntoForm(ymd)}
 }
 
-const loadIntoForm=ymd=>{
+const loadIntoForm=(ymd)=>{
 const e=getEntry(ymd)
 if(e){
 checkInEl.value=e.checkIn||""
@@ -376,11 +375,11 @@ const {count,rits}=getRitsFromInputs()
 for(let i=0;i<count;i++){if(!clean(rits[i].start)||!clean(rits[i].end))return{ok:false,msg:"Fill all RIT start/end"}}
 const ci=parseTime(ymd,checkInEl.value)
 const co=parseTime(ymd,checkOutEl.value)
-if(!(ci&&co)&&ci>co)return{ok:false,msg:"Times must be in order"}
+if(!ci||!co||ci>co)return{ok:false,msg:"Times must be in order"}
 for(let i=0;i<count;i++){
 const rs=parseTime(ymd,rits[i].start)
 const re=parseTime(ymd,rits[i].end)
-if(!(rs&&re))return{ok:false,msg:"Fill all times"}
+if(!rs||!re||rs>re)return{ok:false,msg:"Times must be in order"}
 if(!(ci<=rs&&rs<=re&&re<=co))return{ok:false,msg:"Times must be in order"}
 }
 return{ok:true,msg:""}
@@ -416,8 +415,8 @@ alert("Shift saved")
 deleteBtn.addEventListener("click",()=>{
 const ymd=dateEl.value
 if(!ymd){alert("Pick a date");return}
-if(confirm("Delete this day?")){delEntry(ymd);loadIntoForm(ymd);alert("Deleted")}}
-)
+if(confirm("Delete this day?")){delEntry(ymd);loadIntoForm(ymd);alert("Deleted")}
+})
 
 fillNowBtn.addEventListener("click",()=>{
 const now=new Date()
